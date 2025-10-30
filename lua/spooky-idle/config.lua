@@ -1,8 +1,9 @@
 ---@class spookyidle.Config
----@field idle_time? integer
----@field dim_level? integer
+---@field idle_time? integer # ms before haunt
+---@field dim_level? integer # overlay darkness
 ---@field sound_enabled? boolean
 ---@field image_enabled? boolean
+---@field volume? integer # 0-100
 
 ---@type spookyidle.Config
 local defaults = {
@@ -10,6 +11,7 @@ local defaults = {
 	dim_level = 60,
 	sound_enabled = true,
 	image_enabled = true,
+	volume = 50,
 }
 
 local M = {}

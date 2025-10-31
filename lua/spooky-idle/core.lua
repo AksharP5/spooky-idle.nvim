@@ -9,7 +9,7 @@ local active = false
 local armed = false
 
 local opts = {
-	idle_time = 10000,
+	idle_time = 600000,
 	dim_level = 70,
 	sound_enabled = true,
 	sound_dir = nil,

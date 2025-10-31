@@ -32,7 +32,7 @@ Perfect for Halloween vibes, or just keeping you on your toes.
 
 ```lua
 {
-  "yourusername/spooky-idle.nvim",
+  "AksharP5/spooky-idle.nvim",
   event = "VeryLazy",
   opts = {
     idle_time = 600000,  -- time before idle triggers (in milliseconds, default = 10 minutes)
@@ -47,7 +47,7 @@ Perfect for Halloween vibes, or just keeping you on your toes.
 
 ```lua
 use {
-  "yourusername/spooky-idle.nvim",
+  "AksharP5/spooky-idle.nvim",
   config = function()
     require("spooky-idle.core").setup({
       idle_time = 600000,

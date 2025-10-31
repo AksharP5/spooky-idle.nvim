@@ -37,6 +37,19 @@ local function detect_player()
 	return nil
 end
 
+local function get_sounds_dir()
+	local base = debug.getinfo(1, "S").source:sub(2):match("(.*/)") or ""
+	local local_path = vim.fn.expand("~/projects/plugins/spooky-idle.nvim/sounds")
+	local lazy_path = vim.fn.stdpath("data") .. "/lazy/spooky-idle.nvim/sounds"
+	if vim.fn.isdirectory(local_path) == 1 then
+		return local_path
+	elseif vim.fn.isdirectory(lazy_path) == 1 then
+		return lazy_path
+	else
+		return base .. "../../sounds"
+	end
+end
+
 local function play_file(path)
 	local player = detect_player()
 	if not player then
@@ -53,17 +66,14 @@ local function play_file(path)
 		args = { path }
 	end
 
-	if current_proc and current_proc:is_active() then
-		current_proc:kill("sigterm")
+	if current_proc then
+		pcall(function()
+			current_proc:kill("sigterm")
+		end)
 		current_proc = nil
 	end
 
-	current_proc = uv.spawn(player, {
-		args = args,
-		cwd = vim.loop.cwd() or vim.fn.getcwd(),
-		env = vim.fn.environ(),
-		detached = false,
-	}, function()
+	current_proc = vim.system({ player, unpack(args) }, { detach = true }, function()
 		current_proc = nil
 		if playing then
 			loop_timer = uv.new_timer()
@@ -78,12 +88,11 @@ function M._loop()
 	if not playing then
 		return
 	end
-	local sound_dir = M._dir or (debug.getinfo(1, "S").source:sub(2):match("(.*/)") .. "../../sounds")
-	local expanded = vim.fn.expand(sound_dir)
-	local pattern = expanded .. "/*.{ogg,mp3,wav,flac}"
+	local sound_dir = get_sounds_dir()
+	local pattern = sound_dir .. "/*.{ogg,mp3,wav,flac}"
 	local files = vim.fn.glob(pattern, false, true)
 	if #files == 0 then
-		vim.notify("spooky-idle: No sounds found in " .. expanded, vim.log.levels.WARN)
+		vim.notify("spooky-idle: No sounds found in " .. sound_dir, vim.log.levels.WARN)
 		return
 	end
 	local f = files[math.random(#files)]
@@ -101,13 +110,17 @@ end
 
 function M.stop()
 	playing = false
+
 	if loop_timer then
 		loop_timer:stop()
 		loop_timer:close()
 		loop_timer = nil
 	end
-	if current_proc and current_proc:is_active() then
-		current_proc:kill("sigterm")
+
+	if current_proc then
+		pcall(function()
+			current_proc:kill("sigterm")
+		end)
 		current_proc = nil
 	end
 end

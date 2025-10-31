@@ -1,44 +1,24 @@
 local M = {}
-local uv = vim.loop
+local uv = vim.uv
 local idle_timer
-local last_activity = uv.now()
-local is_idle = false
 
-function M.start(on_idle, on_active, delay)
-	if idle_timer then
-		idle_timer:stop()
+function M.start(timeout, callback)
+	M.stop()
+	local t = uv.new_timer()
+	if not t then
+		vim.notify("spooky-idle: failed to create timer", vim.log.levels.ERROR)
+		return
 	end
-	idle_timer = uv.new_timer()
-
-	local function reset_activity()
-		last_activity = uv.now()
-		if is_idle then
-			is_idle = false
-			vim.schedule(on_active)
-		end
-	end
-
-	vim.on_key(function()
-		reset_activity()
-	end)
-	vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
-		callback = reset_activity,
-	})
-
-	idle_timer:start(1000, 1000, function()
-		local elapsed = uv.now() - last_activity
-		if not is_idle and elapsed > delay then
-			is_idle = true
-			vim.schedule(on_idle)
-		end
-	end)
+	idle_timer = t
+	idle_timer:start(timeout, 0, vim.schedule_wrap(callback))
 end
 
 function M.stop()
 	if idle_timer then
 		idle_timer:stop()
+		idle_timer:close()
+		idle_timer = nil
 	end
-	is_idle = false
 end
 
 return M

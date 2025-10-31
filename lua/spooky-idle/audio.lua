@@ -1,94 +1,99 @@
 local M = {}
-local player
-local current_job
-local haunting = false
-local uv = vim.loop
-
-local function is_exec(cmd)
-	return vim.fn.executable(cmd) == 1
-end
+local uv = vim.uv
+local player, sound_proc
+local playing = false
 
 local function detect_player()
 	local os = jit.os
 	if os == "Linux" then
-		if is_exec("paplay") then
+		if vim.fn.executable("paplay") == 1 then
 			return "paplay"
 		end
-		if is_exec("ffplay") then
+		if vim.fn.executable("ffplay") == 1 then
 			return "ffplay"
+		end
+		if vim.fn.executable("mpv") == 1 then
+			return "mpv"
 		end
 	elseif os == "OSX" then
-		if is_exec("afplay") then
+		if vim.fn.executable("afplay") == 1 then
 			return "afplay"
 		end
-	elseif os == "Windows" then
-		if is_exec("ffplay") then
+		if vim.fn.executable("ffplay") == 1 then
 			return "ffplay"
 		end
+		if vim.fn.executable("mpv") == 1 then
+			return "mpv"
+		end
+	elseif os == "Windows" then
+		if vim.fn.executable("ffplay") == 1 then
+			return "ffplay"
+		end
+		if vim.fn.executable("mpv") == 1 then
+			return "mpv"
+		end
 	end
+	return nil
 end
 
-function M.setup()
-	player = detect_player()
+local function play_file(path)
 	if not player then
-		vim.notify("spooky-idle: no audio player found", vim.log.levels.WARN)
-	end
-end
-
-local function get_sound_dir(cfg)
-	local plugin_dir = debug.getinfo(1, "S").source:sub(2)
-	plugin_dir = vim.fn.fnamemodify(plugin_dir, ":h:h:h")
-	local default_dir = plugin_dir .. "/sounds"
-	local dir = cfg.sound_dir and vim.fn.expand(cfg.sound_dir) or default_dir
-	return dir
-end
-
-local function play_random_sound(cfg)
-	if not player or not cfg.sound_enabled then
 		return
 	end
-	local dir = get_sound_dir(cfg)
-	local files = vim.fn.glob(dir .. "/*.{mp3,ogg,wav}", false, true)
-	if #files == 0 then
-		vim.notify("spooky-idle: no sounds found in " .. dir, vim.log.levels.WARN)
-		return
-	end
-
-	local file = files[math.random(#files)]
 	local cmd
 	if player == "ffplay" then
-		cmd = { "ffplay", "-nodisp", "-autoexit", "-v", "quiet", file }
+		cmd = { "ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", path }
+	elseif player == "mpv" then
+		cmd = { "mpv", "--no-video", "--really-quiet", "--no-terminal", path }
 	elseif player == "afplay" then
-		cmd = { "afplay", file }
+		cmd = { "afplay", path }
 	elseif player == "paplay" then
-		cmd = { "paplay", file }
+		cmd = { "paplay", path }
 	end
-
-	current_job = vim.system(cmd, {
-		detach = false,
-		on_exit = function()
-			if haunting then
-				vim.schedule(function()
-					play_random_sound(cfg)
-				end)
-			end
-		end,
-	})
+	if cmd then
+		sound_proc = vim.system(cmd, { detach = true })
+	end
 end
 
-function M.start(cfg)
-	if haunting then
+function M.play_random_loop(dir)
+	if playing then
 		return
 	end
-	haunting = true
-	play_random_sound(cfg)
+	player = detect_player()
+	if not player then
+		vim.notify("spooky-idle: No audio player found", vim.log.levels.WARN)
+		return
+	end
+	playing = true
+	local sound_dir = dir or (debug.getinfo(1, "S").source:sub(2):match("(.*/)") .. "../sounds")
+	local expanded = vim.fn.expand(sound_dir)
+	local pattern = expanded .. "/*.{ogg,mp3,wav,flac}"
+	local files = vim.fn.glob(pattern, false, true)
+	if #files == 0 then
+		vim.notify("spooky-idle: No sounds found in " .. expanded, vim.log.levels.WARN)
+		return
+	end
+	local function loop()
+		if not playing then
+			return
+		end
+		local f = files[math.random(#files)]
+		play_file(f)
+		local timer = uv.new_timer()
+		if not timer then
+			return
+		end
+		timer:start(15000, 0, vim.schedule_wrap(loop))
+	end
+	loop()
 end
 
 function M.stop()
-	haunting = false
-	if current_job and not current_job:is_closing() then
-		current_job:kill(9)
+	playing = false
+	if sound_proc and sound_proc.kill then
+		sound_proc:kill("sigterm")
 	end
+	sound_proc = nil
 end
 
 return M

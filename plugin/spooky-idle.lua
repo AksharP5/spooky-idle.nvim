@@ -4,15 +4,19 @@ end
 vim.g.loaded_spooky_idle = true
 
 vim.api.nvim_create_user_command("SpookyIdle", function(opts)
-	local core = require("spooky-idle.core")
-	local arg = opts.args
-	if arg == "start" then
-		core.start()
-	elseif arg == "stop" then
-		core.stop()
-	elseif arg == "toggle" then
-		core.toggle()
+	local sub = opts.fargs[1]
+	local spooky = require("spooky-idle.core")
+
+	if sub == "start" then
+		spooky.start()
+	elseif sub == "stop" then
+		spooky.stop()
+	elseif sub == "toggle" then
+		spooky.toggle()
 	else
 		vim.notify("Usage: :SpookyIdle [start|stop|toggle]", vim.log.levels.INFO)
 	end
-end, { nargs = 1 })
+end, {
+	nargs = "?",
+	desc = "Start or stop the spooky idle haunt",
+})

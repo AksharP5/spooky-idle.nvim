@@ -1,21 +1,23 @@
-local health = vim.health
 local M = {}
 
 function M.check()
-	health.report_start("spooky-idle.nvim")
-
-	local ok, cfg = pcall(require, "spooky-idle.config")
-	if ok then
-		health.report_ok("Config loaded")
+	vim.health.start("spooky-idle.nvim")
+	if vim.fn.has("nvim-0.10") == 0 then
+		vim.health.error("Requires Neovim 0.10 or higher")
 	else
-		health.report_error("Config failed: " .. cfg)
+		vim.health.ok("Neovim version is sufficient")
 	end
-
-	local dir = (require("spooky-idle.config").get()).sound_dir
-	if dir and vim.fn.isdirectory(dir) == 0 then
-		health.report_warn("Sound directory not found: " .. dir)
-	else
-		health.report_ok("Sound directory present")
+	local players = { "paplay", "afplay", "ffplay", "mpv" }
+	local found = false
+	for _, p in ipairs(players) do
+		if vim.fn.executable(p) == 1 then
+			vim.health.ok("Audio player found: " .. p)
+			found = true
+			break
+		end
+	end
+	if not found then
+		vim.health.warn("No audio player found (paplay, ffplay, afplay, mpv)")
 	end
 end
 

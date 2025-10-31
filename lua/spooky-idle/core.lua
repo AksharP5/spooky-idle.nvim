@@ -1,52 +1,53 @@
 local M = {}
-local config = require("spooky-idle.config")
+local timer = require("spooky-idle.timer")
 local overlay = require("spooky-idle.overlay")
 local audio = require("spooky-idle.audio")
-local timer = require("spooky-idle.timer")
 
-local active = false
-local cfg
+local config = {
+	idle_time = 10000,
+	dim_level = 70,
+	sound_enabled = true,
+	sound_dir = nil,
+}
 
-function M.start()
-	if active then
-		vim.notify("spooky-idle already running", vim.log.levels.INFO)
+local idle = false
+
+function M.start(opts)
+	config = vim.tbl_extend("force", config, opts or {})
+	if idle then
 		return
 	end
 
-	cfg = config.get()
-	audio.setup()
+	idle = true
+	vim.notify("Spooky Idle started...", vim.log.levels.INFO)
 
-	vim.api.nvim_create_autocmd("VimLeavePre", {
-		once = true,
-		callback = M.stop,
-	})
+	timer.start(config.idle_time, function()
+		overlay.start(config.dim_level)
+		if config.sound_enabled then
+			audio.play_random_loop(config.sound_dir)
+		end
+	end)
 
-	timer.start(function()
-		overlay.dim(cfg)
-		audio.start(cfg)
-	end, function()
-		overlay.clear()
-		audio.stop()
-	end, cfg.idle_time)
-
-	active = true
-	vim.notify("spooky-idle started", vim.log.levels.INFO)
+	vim.on_key(function()
+		if idle then
+			M.stop()
+		end
+	end)
 end
 
 function M.stop()
-	if not active then
-		vim.notify("spooky-idle not running", vim.log.levels.WARN)
+	if not idle then
 		return
 	end
-	timer.stop()
+	idle = false
 	overlay.clear()
 	audio.stop()
-	active = false
-	vim.notify("spooky-idle stopped", vim.log.levels.INFO)
+	timer.stop()
+	vim.notify("Spooky Idle stopped", vim.log.levels.INFO)
 end
 
 function M.toggle()
-	if active then
+	if idle then
 		M.stop()
 	else
 		M.start()

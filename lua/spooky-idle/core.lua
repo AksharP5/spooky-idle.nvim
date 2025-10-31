@@ -4,10 +4,11 @@ local audio = require("spooky-idle.audio")
 local M = {}
 local uv = vim.uv
 local idle_timer
-local active = false
 local last_activity = uv.now()
+local active = false
+
 local opts = {
-	idle_time = 10000, -- 10 minutes default
+	idle_time = 10000,
 	dim_level = 70,
 	sound_enabled = true,
 	sound_dir = nil,
@@ -17,24 +18,22 @@ function M.setup(user_opts)
 	opts = vim.tbl_deep_extend("force", opts, user_opts or {})
 end
 
-local function instant_stop()
-	vim.schedule(function()
-		if active then
-			active = false
-			overlay.hide()
-			audio.stop()
-		end
-	end)
-end
-
-local function mark_active()
-	last_activity = uv.now()
+local function stop_all()
 	if active then
-		instant_stop()
+		active = false
+		overlay.hide()
+		audio.stop()
 	end
 end
 
-local function on_idle()
+local function mark_activity()
+	last_activity = uv.now()
+	if active then
+		stop_all()
+	end
+end
+
+local function start_idle()
 	if active then
 		return
 	end
@@ -56,21 +55,12 @@ function M.start()
 
 	vim.api.nvim_create_autocmd(
 		{ "CursorMoved", "CursorMovedI", "InsertEnter", "FocusGained", "WinEnter", "CmdlineEnter" },
-		{
-			group = group,
-			callback = function()
-				mark_active()
-			end,
-		}
+		{ group = group, callback = mark_activity }
 	)
 
-	vim.on_key(function()
-		mark_active()
-	end, group)
+	vim.on_key(mark_activity, group)
 	if vim.on_input then
-		vim.on_input(function()
-			mark_active()
-		end)
+		vim.on_input(mark_activity)
 	end
 
 	idle_timer = uv.new_timer()
@@ -79,28 +69,32 @@ function M.start()
 		return
 	end
 
+	vim.schedule(function()
+		vim.notify("spooky-idle started", vim.log.levels.INFO)
+	end)
+
 	idle_timer:start(
 		0,
 		500,
 		vim.schedule_wrap(function()
 			if not active and uv.now() - last_activity >= opts.idle_time then
-				on_idle()
+				start_idle()
 			end
 		end)
 	)
-
-	vim.notify("spooky-idle started")
 end
 
 function M.stop()
+	stop_all()
 	if idle_timer then
 		idle_timer:stop()
 		idle_timer:close()
 		idle_timer = nil
 	end
 	vim.api.nvim_clear_autocmds({ group = "SpookyIdleDetect" })
-	instant_stop()
-	vim.notify("spooky-idle stopped")
+	vim.schedule(function()
+		vim.notify("spooky-idle stopped", vim.log.levels.INFO)
+	end)
 end
 
 return M

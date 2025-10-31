@@ -43,6 +43,8 @@ Perfect for Halloween vibes, or just keeping you on your toes.
 }
 ```
 
+<!-- 
+
 ### Using [packer.nvim](https://github.com/wbthomason/packer.nvim)
 
 ```lua
@@ -58,6 +60,7 @@ use {
   end
 }
 ```
+-->
 
 ---
 

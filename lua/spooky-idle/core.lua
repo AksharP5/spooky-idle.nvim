@@ -6,6 +6,7 @@ local uv = vim.uv
 local idle_timer
 local last_activity = uv.now()
 local active = false
+local armed = false
 
 local opts = {
 	idle_time = 10000,
@@ -18,18 +19,12 @@ function M.setup(user_opts)
 	opts = vim.tbl_deep_extend("force", opts, user_opts or {})
 end
 
-local function stop_all()
-	if active then
-		active = false
-		overlay.hide()
-		audio.stop()
-	end
-end
-
 local function mark_activity()
 	last_activity = uv.now()
 	if active then
-		stop_all()
+		overlay.hide()
+		audio.stop()
+		active = false
 	end
 end
 
@@ -45,6 +40,9 @@ local function start_idle()
 end
 
 function M.start()
+	if armed then
+		return
+	end
 	if idle_timer then
 		idle_timer:stop()
 		idle_timer:close()
@@ -69,6 +67,8 @@ function M.start()
 		return
 	end
 
+	armed = true
+
 	vim.schedule(function()
 		vim.notify("spooky-idle started", vim.log.levels.INFO)
 	end)
@@ -85,16 +85,29 @@ function M.start()
 end
 
 function M.stop()
-	stop_all()
+	if not armed then
+		return
+	end
+	armed = false
+	active = false
+
 	if idle_timer then
 		idle_timer:stop()
 		idle_timer:close()
 		idle_timer = nil
 	end
+
 	vim.api.nvim_clear_autocmds({ group = "SpookyIdleDetect" })
+	overlay.hide()
+	audio.stop()
+
 	vim.schedule(function()
 		vim.notify("spooky-idle stopped", vim.log.levels.INFO)
 	end)
+end
+
+function M.is_active()
+	return armed
 end
 
 return M

@@ -3,27 +3,29 @@ if vim.g.loaded_spooky_idle then
 end
 vim.g.loaded_spooky_idle = true
 
-vim.schedule(function()
-	local ok, spooky = pcall(require, "spooky-idle.core")
-	if not ok or type(spooky.start) ~= "function" then
-		return
-	end
+local spooky = require("spooky-idle.core")
+local state = require("spooky-idle.state")
 
+vim.api.nvim_create_user_command("SpookyIdleStart", function()
 	spooky.start()
+	state.save({ enabled = true })
+end, { desc = "Start spooky-idle" })
 
-	vim.api.nvim_create_user_command("SpookyIdleStart", function()
-		spooky.start()
-	end, { desc = "Start spooky-idle manually" })
+vim.api.nvim_create_user_command("SpookyIdleStop", function()
+	spooky.stop()
+	state.save({ enabled = false })
+end, { desc = "Stop spooky-idle" })
 
-	vim.api.nvim_create_user_command("SpookyIdleStop", function()
-		spooky.stop()
-	end, { desc = "Stop spooky-idle" })
+vim.api.nvim_create_user_command("SpookyIdleStatus", function()
+	local msg = spooky.is_active() and "spooky-idle: active" or "spooky-idle: stopped"
+	vim.notify(msg, vim.log.levels.INFO)
+end, { desc = "Show spooky-idle status" })
 
-	vim.api.nvim_create_user_command("SpookyIdleToggle", function()
-		if spooky.is_active() then
-			spooky.stop()
-		else
-			spooky.start()
-		end
-	end, { desc = "Toggle spooky-idle" })
-end)
+local last_state = state.load()
+if last_state.enabled then
+	spooky.start()
+else
+	vim.schedule(function()
+		vim.notify("spooky-idle is disabled (previous session)", vim.log.levels.INFO)
+	end)
+end
